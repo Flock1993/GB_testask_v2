@@ -130,12 +130,10 @@ class JsonPars:
                 result[sensor] = Decimal(sensor_values['summ'] / sensor_values['count']).quantize(Decimal('1.000'))
 
         lst_values = [str(value) if value != 0 else 'NULL' for value in result.values()]
-        print(lst_values)
         cnxn = db_connection(server, db, username, psswrd)
         create_table(cnxn, lst_sensors)
         with cnxn:
             cursor = cnxn.cursor()
-            print(self.conf_datetime, type(self.conf_datetime))
             cursor.execute(f"""
                 INSERT INTO sensor_value(ts, {', '.join(lst_sensors)})
                 VALUES('{self.conf_datetime}', {', '.join(lst_values)})
