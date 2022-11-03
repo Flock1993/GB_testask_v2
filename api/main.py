@@ -1,9 +1,10 @@
-from datetime import datetime
+from parsing import db_connection, JsonPars
 
 from fastapi import FastAPI, status, HTTPException
+from fastapi.openapi.models import Response
 from pydantic import BaseModel
+from datetime import datetime
 
-from parsing import db_connection, JsonPars
 
 with db_connection() as db_conn:
     app = FastAPI()
@@ -13,7 +14,9 @@ REQUIRED_SENSORS = instanse.create_collections()[0]
 
 
 class POSTItem(BaseModel):
-    """
+    timestamp: str
+    sensor_values: list[dict]
+    '''
     Пример payload
     {
     "timestamp": "2021-07-15 10:36:54",
@@ -22,33 +25,43 @@ class POSTItem(BaseModel):
         {"sensor_id": "sensor2", "value": 54.295}
     ]
     }
-    """
-    timestamp: str
-    sensor_values: list[dict[str, float]]
+    '''
 
 
-def valid_data(timestamp: datetime, max_timestamp: datetime, sensor_values: list[dict[str, float]]) -> (
-        set[str], list[str]):
+def valid_data(timestamp, sensor_values, max_timestamp):
     """Валидация данных из тела POST запроса"""
     if timestamp < max_timestamp:
         return 'timestamp меньше чем максимальный timestamp в БД'
     set_db = set(REQUIRED_SENSORS)
     sensor_names_post = set([x['sensor_id'] for x in sensor_values])
     absent_sensors = sensor_names_post.difference(set_db)
+    exist_sensors = set_db.intersection(sensor_names_post)
     di = {item["sensor_id"]: item["value"] for item in sensor_values}
     values_to_write = [str(di.get(sensor_name, 'NULL')) for sensor_name in REQUIRED_SENSORS]
-    return absent_sensors, values_to_write
+    print(values_to_write)
+    # print(f'Absent sensors is {absent_sensors}')
+    # print(f'Existing sensors is {exist_sensors}')
+    return absent_sensors, exist_sensors, values_to_write
 
 
-def max_timestamp(cnxn):
-    """Определение максимального timestamp в БД"""
+def insert_in_db(cnxn, timestamp, values_to_write):
+    """Запись данных из тела POST запроса в БД"""
+    print(timestamp)
+    print(', '.join(REQUIRED_SENSORS))
+    print(values_to_write)
+    print(', '.join(values_to_write))
     with cnxn:
         cursor = cnxn.cursor()
-        cursor.execute("""
-            SELECT MAX(ts)
-            FROM sensor_value
+        cursor.execute(f"""
+            INSERT INTO sensor_value(ts, {', '.join(REQUIRED_SENSORS)})
+            VALUES('{timestamp}', {', '.join(values_to_write)})
+            ON CONFLICT DO NOTHING;
         """)
-    return cursor.fetchone()[0]
+        cursor.execute("""
+            SELECT *
+            FROM sensor_value;
+        """)
+        print(cursor.fetchone())
 
 
 def select_last_value(cnxn, sensor_id):
@@ -71,21 +84,15 @@ def select_last_value(cnxn, sensor_id):
         return None, err, type(err)
 
 
-def insert_in_db(cnxn, timestamp, values_to_write):
-    """Запись данных из тела POST запроса в БД"""
+def max_timestamp(cnxn):
+    """Определение максимального timestamp в БД"""
     with cnxn:
         cursor = cnxn.cursor()
-        cursor.execute(f"""
-            INSERT INTO sensor_value(ts, {', '.join(REQUIRED_SENSORS)})
-            VALUES('{timestamp}', {', '.join(values_to_write)})
-            ON CONFLICT DO NOTHING;
-        """)
         cursor.execute("""
-            SELECT *
-            FROM sensor_value;
+            SELECT MAX(ts)
+            FROM sensor_value
         """)
-        print(type(cnxn))
-        print(cursor.fetchall())
+    return cursor.fetchone()[0]
 
 
 @app.post("/api/write_values")
@@ -98,7 +105,7 @@ def post_root(item: POSTItem):
             "status": "Success",
             "desc": "Данные датчиков были успешно записаны в БД"
         }
-        absent_sensors, values_to_write = valid_data(timestamp, maxi, sensor_values)
+        absent_sensors, exist_sensors, values_to_write = valid_data(timestamp, sensor_values, maxi)
         insert_in_db(db_conn, timestamp, values_to_write)
         if len(absent_sensors) != 0:
             data["desc"] = f"Показания следующих датчиков {absent_sensors} не были импортированы"
