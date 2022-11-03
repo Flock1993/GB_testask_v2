@@ -1,7 +1,6 @@
 from parsing import db_connection, JsonPars
 
 from fastapi import FastAPI, status, HTTPException
-from fastapi.openapi.models import Response
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -11,6 +10,10 @@ with db_connection() as db_conn:
 
 instanse = JsonPars()
 REQUIRED_SENSORS = instanse.create_collections()[0]
+
+
+class CustomError(Exception):
+    pass
 
 
 class POSTItem(BaseModel):
@@ -31,7 +34,7 @@ class POSTItem(BaseModel):
 def valid_data(timestamp, sensor_values, max_timestamp):
     """Валидация данных из тела POST запроса"""
     if timestamp < max_timestamp:
-        return 'timestamp меньше чем максимальный timestamp в БД'
+        return f'timestamp запроса {timestamp} меньше чем MAX timestamp БД {max_timestamp}'
     set_db = set(REQUIRED_SENSORS)
     sensor_names_post = set([x['sensor_id'] for x in sensor_values])
     absent_sensors = sensor_names_post.difference(set_db)
@@ -46,10 +49,6 @@ def valid_data(timestamp, sensor_values, max_timestamp):
 
 def insert_in_db(cnxn, timestamp, values_to_write):
     """Запись данных из тела POST запроса в БД"""
-    print(timestamp)
-    print(', '.join(REQUIRED_SENSORS))
-    print(values_to_write)
-    print(', '.join(values_to_write))
     with cnxn:
         cursor = cnxn.cursor()
         cursor.execute(f"""
@@ -61,7 +60,7 @@ def insert_in_db(cnxn, timestamp, values_to_write):
             SELECT *
             FROM sensor_value;
         """)
-        print(cursor.fetchone())
+        print(cursor.fetchall())
 
 
 def select_last_value(cnxn, sensor_id):
@@ -105,7 +104,12 @@ def post_root(item: POSTItem):
             "status": "Success",
             "desc": "Данные датчиков были успешно записаны в БД"
         }
-        absent_sensors, exist_sensors, values_to_write = valid_data(timestamp, sensor_values, maxi)
+        res = valid_data(timestamp, sensor_values, maxi)
+        if isinstance(res, str):
+            data["status"] = "Error"
+            data["desc"] = res
+            return status.HTTP_400_BAD_REQUEST, data
+        absent_sensors, exist_sensors, values_to_write = res
         insert_in_db(db_conn, timestamp, values_to_write)
         if len(absent_sensors) != 0:
             data["desc"] = f"Показания следующих датчиков {absent_sensors} не были импортированы"
@@ -131,23 +135,3 @@ def read_root(sensor_id: str):
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail=f'"desc": "Ошибка {my_tuple[1]}, тип ошибки {my_tuple[2]}"')
-
-
-# @app.get("/api/last_value")
-# def read_root(response: Response, sensor_id: str):
-#     my_tuple = select_last_value(db_conn, sensor_id)
-#     if len(my_tuple) == 2:
-#         timestamp, last_value = my_tuple
-#         data = {
-#             "timestamp": timestamp,
-#             f"{sensor_id}": last_value
-#         }
-#         return status.HTTP_200_OK, data
-#     else:
-#         response.status_code = status.HTTP_400_BAD_REQUEST
-#         data = {
-#             "status": "Error",
-#             "desc": my_tuple[2]
-#         }
-#         return status.HTTP_400_BAD_REQUEST, data
-
