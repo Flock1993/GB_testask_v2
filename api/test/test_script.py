@@ -1,12 +1,30 @@
 import pytest
 
-from ..parsing import JsonPars
+from ..parsing import db_connection, JsonPars
 import json
 from datetime import datetime
+import psycopg2
+import subprocess
 
 
 TEST_DIR_CONFIG = 'test_data'
 TEST_DIR_JSON = 'test_data/test_telemetry'
+
+
+def test_db_connect():
+    """Тест проверки подключения к БД Postgres"""
+    connection_status = True
+    try:
+        with db_connection() as db_con:
+            db_close = db_con.closed
+            cursor = db_con.cursor()
+            cursor.execute("""
+                        SELECT *
+                        FROM sensor_value
+                    """)
+    except (psycopg2.OperationalError, psycopg2.DatabaseError):
+        connection_status = False
+    assert connection_status and db_close == 0
 
 
 @pytest.fixture
@@ -62,6 +80,4 @@ def test_unreq_sensor():
     pass
 
 
-def test_db_connect():
-    """Тест проверки подключения к БД"""
-    pass
+
