@@ -12,10 +12,7 @@ instanse = JsonPars()
 REQUIRED_SENSORS = instanse.create_collections()[0]
 
 
-class CustomError(Exception):
-    pass
-
-
+# запуск приложения uvicorn main:app --reload
 class POSTItem(BaseModel):
     timestamp: str
     sensor_values: list[dict]
@@ -29,22 +26,6 @@ class POSTItem(BaseModel):
     ]
     }
     '''
-
-
-def valid_data(timestamp, sensor_values, max_timestamp):
-    """Валидация данных из тела POST запроса"""
-    if timestamp < max_timestamp:
-        return f'timestamp запроса {timestamp} меньше чем MAX timestamp БД {max_timestamp}'
-    set_db = set(REQUIRED_SENSORS)
-    sensor_names_post = set([x['sensor_id'] for x in sensor_values])
-    absent_sensors = sensor_names_post.difference(set_db)
-    exist_sensors = set_db.intersection(sensor_names_post)
-    di = {item["sensor_id"]: item["value"] for item in sensor_values}
-    values_to_write = [str(di.get(sensor_name, 'NULL')) for sensor_name in REQUIRED_SENSORS]
-    print(values_to_write)
-    # print(f'Absent sensors is {absent_sensors}')
-    # print(f'Existing sensors is {exist_sensors}')
-    return absent_sensors, exist_sensors, values_to_write
 
 
 def insert_in_db(cnxn, timestamp, values_to_write):
@@ -94,6 +75,24 @@ def max_timestamp(cnxn):
     return cursor.fetchone()[0]
 
 
+def valid_data(timestamp, sensor_values, max_timestamp):
+    """Валидация данных из тела POST запроса"""
+    if timestamp < max_timestamp:
+        print(f'timestamp запроса {timestamp} меньше чем MAX timestamp БД {max_timestamp}')
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'timestamp запроса {timestamp} меньше чем MAX timestamp БД {max_timestamp}')
+        # return f'timestamp запроса {timestamp} меньше чем MAX timestamp БД {max_timestamp}'
+    set_db = set(REQUIRED_SENSORS)
+    sensor_names_post = set([x['sensor_id'] for x in sensor_values])
+    absent_sensors = sensor_names_post.difference(set_db)
+    exist_sensors = set_db.intersection(sensor_names_post)
+    di = {item["sensor_id"]: item["value"] for item in sensor_values}
+    values_to_write = [str(di.get(sensor_name, 'NULL')) for sensor_name in REQUIRED_SENSORS]
+    print(values_to_write)
+    return absent_sensors, exist_sensors, values_to_write
+
+
 @app.post("/api/write_values")
 def post_root(item: POSTItem):
     try:
@@ -105,15 +104,17 @@ def post_root(item: POSTItem):
             "desc": "Данные датчиков были успешно записаны в БД"
         }
         res = valid_data(timestamp, sensor_values, maxi)
-        if isinstance(res, str):
-            data["status"] = "Error"
-            data["desc"] = res
-            return status.HTTP_400_BAD_REQUEST, data
+        # if isinstance(res, str):
+        #     data["status"] = "Error"
+        #     data["desc"] = res
+        #     return status.HTTP_400_BAD_REQUEST, data
         absent_sensors, exist_sensors, values_to_write = res
         insert_in_db(db_conn, timestamp, values_to_write)
         if len(absent_sensors) != 0:
             data["desc"] = f"Показания следующих датчиков {absent_sensors} не были импортированы"
         return status.HTTP_200_OK, data
+    except HTTPException as err:
+        return status.HTTP_400_BAD_REQUEST, err
     except Exception as err:
         data = {
             "status": "Error",

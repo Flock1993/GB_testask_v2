@@ -178,7 +178,6 @@ class JsonPars:
 
 def main():
     instanse = JsonPars()
-    lst_sensors, dict_sensors, mid_result = instanse.create_collections()
     instanse.process_telemetry()
 
 
