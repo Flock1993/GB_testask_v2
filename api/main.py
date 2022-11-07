@@ -1,4 +1,4 @@
-from parsing import db_connection, JsonPars
+from api.parsing import db_connection, JsonPars
 
 from fastapi import FastAPI, status, HTTPException
 from pydantic import BaseModel
