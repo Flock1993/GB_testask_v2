@@ -78,7 +78,7 @@ def create_table(cnxn, lst_sensors):
                     );
             """)
         for sensor in lst_sensors:
-            cursor.execute(f"ALTER TABLE sensor_value ADD COLUMN IF NOT EXISTS {sensor} REAL DEFAULT NULL")
+            cursor.execute(f"ALTER TABLE sensor_value ADD COLUMN IF NOT EXISTS {sensor} NUMERIC(7,3) DEFAULT NULL")
 
 
 def output_column(cnxn, table_name):
@@ -91,6 +91,7 @@ def output_column(cnxn, table_name):
             WHERE table_name = '{table_name}' AND column_name LIKE 'sensor%'
             """)
     return column_names_lst
+
 
 class JsonPars:
     """Передача показаний датчиков"""
@@ -143,7 +144,7 @@ class JsonPars:
                 SELECT *
                 FROM sensor_value;
             """)
-            query = cursor.fetchone()
+            query = cursor.fetchall()
         return query
 
 
@@ -172,8 +173,8 @@ class JsonPars:
             else:
                 logging.info(f'Название или формат файла {json_file} некорректны')
         query = self.calc_write_db(mid_result, lst_sensors)
-        logging.info(f'Записи в БД: {query}')
-        print(f'Записи в БД: {query}')
+        logging.info('Записи в БД:', *query, sep='\n')
+        print('Записи в БД:', *query, sep='\n')
 
 
 def main():

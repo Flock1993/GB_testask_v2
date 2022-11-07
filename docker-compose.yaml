@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:13.0-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - data_value:/var/lib/postgresql/data/
+    env_file:
+      - ./.env
+  web:
+    build: .
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    env_file:
+      - ./.env
+    volumes:
+      - ./data:/data:ro # Доступ к данным телеметрии
+  scheduler:
+    build: .
+    restart: always
+    command:
+      - cd ./json_import/
+      - python task_scheduler.py
+    env_file:
+      - ./.env
+    volumes:
+      - ./data:/data:ro # Доступ к данным телеметрии
+volumes:
+  data_value:

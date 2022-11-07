@@ -1,0 +1,8 @@
+docker-compose.yaml
+.env
+.example.env
+venv
+LICENSE
+README.md
+.idea
+db_access
