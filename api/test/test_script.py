@@ -221,7 +221,6 @@ def datetime_name_content_fixture():
     """
     Создание тестовых файлов телеметрии sensors_<data>.json с данными для вычисления среднего значения одного датчика
     """
-
     for item in items:
         data = {
             "timestamp": item["ts"],
