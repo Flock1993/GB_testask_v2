@@ -9,7 +9,7 @@ with db_connection() as db_conn:
     app = FastAPI()
 
 instanse = JsonPars()
-REQUIRED_SENSORS = instanse.create_collections()[0]
+REQUIRED_SENSORS = instanse.__create_collections()[0]
 
 
 # запуск приложения uvicorn main:app --reload
@@ -79,11 +79,11 @@ def max_timestamp(cnxn):
 def valid_data(timestamp, sensor_values, max_timestamp):
     """Валидация данных из тела POST запроса"""
     if max_timestamp is not None:
-        if timestamp < max_timestamp:
-            print(f'timestamp запроса {timestamp} меньше чем MAX timestamp БД {max_timestamp}')
+        if timestamp <= max_timestamp:
+            print(f'timestamp запроса {timestamp} меньше или равен MAX timestamp БД {max_timestamp}')
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'timestamp запроса {timestamp} меньше чем MAX timestamp БД {max_timestamp}')
+                detail=f'timestamp запроса {timestamp} меньше или равен MAX timestamp БД {max_timestamp}')
     set_db = set(REQUIRED_SENSORS)
     sensor_names_post = set([x['sensor_id'] for x in sensor_values])
     absent_sensors = sensor_names_post.difference(set_db)

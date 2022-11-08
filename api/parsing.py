@@ -109,7 +109,7 @@ class JsonPars:
         self.dir_config = dir_config
         self.conf_datetime = conf_datetime
 
-    def create_collections(
+    def __create_collections(
             self) -> Tuple[Any, Dict[Any, Any], Dict[Any, Dict[str, int]]]:
         """
         Внесение названий целевых датчиков во вспомогательные коллекции
@@ -120,9 +120,8 @@ class JsonPars:
             mid_result = {x: {'count': 0, 'summ': 0} for x in lst_sensors}
         return lst_sensors, dict_sensors, mid_result
 
-    def calc_write_db(self, mid_result: Dict[Any, Dict[str, int]], lst_sensors) -> Tuple[Dict[str, int], Any]:
+    def __calc_write_db(self, mid_result: Dict[Any, Dict[str, int]], lst_sensors) -> Tuple[Dict[str, int], Any]:
         """Вычисление средних показателей датчиков и их запись в БД"""
-        # вычисление средних значений
         result = {}
         for sensor, sensor_values in mid_result.items():
             if sensor_values['count'] == 0:
@@ -150,7 +149,7 @@ class JsonPars:
 
     def process_telemetry(self) -> bool:
         """Главная функция передачи показаний датчиков в БД"""
-        lst_sensors, dict_sensors, mid_result = self.create_collections()
+        lst_sensors, dict_sensors, mid_result = self.__create_collections()
         # проход по всем файлам телеметрии
         for json_file in os.listdir(self.dir_telemetry):
             # если название файла корректно - парсим дату из его названия
@@ -172,7 +171,7 @@ class JsonPars:
                     logging.info(f'Дата в названии файла {json_file} некорректна')
             else:
                 logging.info(f'Название или формат файла {json_file} некорректны')
-        query = self.calc_write_db(mid_result, lst_sensors)
+        query = self.__calc_write_db(mid_result, lst_sensors)
         logging.info('Записи в БД:', *query, sep='\n')
         print('Записи в БД:', *query, sep='\n')
 

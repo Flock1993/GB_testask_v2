@@ -55,6 +55,15 @@ def test_post_smoke(clear_db):
     assert response.json()[1]['desc'] == "Показания следующих датчиков {'sensor2'} не были импортированы"
 
 
-def test_ts_outofrange():
+def test_ts_outofrange(clear_db, telemetry_fixture, script_execute):
     """timestamp POST запроса мыньше чем максимальная дата в БД"""
-    pass
+    body = {
+        "timestamp": "2021-07-14 10:36:54",
+        "sensor_values": [
+            {"sensor_id": "sensor1", "value": 1.074},
+            {"sensor_id": "sensor2", "value": 54.295}
+        ]
+    }
+    response = requests.post(f"{URL}/write_values", json=body)
+    assert response.status_code == 400, "Некорректный код ответа"
+    assert "меньше или равен MAX timestamp БД" in response.json()['detail']

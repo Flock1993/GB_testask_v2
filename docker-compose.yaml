@@ -10,7 +10,7 @@ services:
     env_file:
       - ./.env
   web:
-    build: .
+    build: ./api/
     restart: always
     ports:
       - "8000:8000"
@@ -21,11 +21,8 @@ services:
     volumes:
       - ./data:/data:ro # Доступ к данным телеметрии
   scheduler:
-    build: .
+    build: ./json_import/
     restart: always
-    command:
-      - cd ./json_import/
-      - python task_scheduler.py
     env_file:
       - ./.env
     volumes:
