@@ -38,6 +38,7 @@ def insert_in_db(cnxn, timestamp, values_to_write):
             VALUES('{timestamp}', {', '.join(values_to_write)})
             ON CONFLICT DO NOTHING;
         """)
+        # Убрать
         cursor.execute("""
             SELECT *
             FROM sensor_value;

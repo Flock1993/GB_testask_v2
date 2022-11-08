@@ -11,9 +11,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 server = 'localhost'
-db = os.getenv('DB_NAME', default='DB')
-username = os.getenv('POSTGRES_USER')
-psswrd = os.getenv('POSTGRES_PASSWORD')
+db = os.getenv('DB_NAME', default='db')
+username = os.getenv('POSTGRES_USER', default='postgres')
+psswrd = os.getenv('POSTGRES_PASSWORD', default='qwerty')
 
 
 def parsing_datetime(file_name: str) -> Optional[datetime]:

@@ -174,6 +174,11 @@ def test_boundary_datetime(clear_db, boundary_telemetry_fixture, script_execute)
 SUMMARD1 = -61.2105297502
 SUMMARD2 = -90.9436886104
 
+items_edge_ts = [
+        {"ts_str": "2021-07-15_10_00_00", "ts": "2021-07-15 10:00:00", "sensor_id": "sensor1", "value": SUMMARD1},
+        {"ts_str": "2021-07-15_10_01_00", "ts": "2021-07-15 10:01:00", "sensor_id": "sensor1", "value": SUMMARD2},
+    ]
+
 
 @pytest.fixture
 def avg_telemetry_fixture():
@@ -209,19 +214,18 @@ def test_agv_value(clear_db, avg_telemetry_fixture, script_execute):
     assert query_execute(sql_query)
 
 
-# Использование глобальной переменной
-items = [
+items_edge_ts = [
         {"ts_str": "2021-07-15_10_00_01", "ts": "2021-07-15 09:59:58", "sensor_id": "sensor1", "value": -1.48033135073},
         {"ts_str": "2021-07-15_10_01_00", "ts": "2021-07-15 10:01:00", "sensor_id": "sensor1", "value": -26.3742436413},
     ]
 
 
 @pytest.fixture
-def datetime_name_content_fixture():
+def telemetry_fixture(request):
     """
-    Создание тестовых файлов телеметрии sensors_<data>.json с данными для вычисления среднего значения одного датчика
+    Создание тестовых файлов телеметрии sensors_<data>.json
     """
-    for item in items:
+    for item in request.param:
         data = {
             "timestamp": item["ts"],
             "sensors": [{"sensor_id": item["sensor_id"], "value": item["value"]}]
@@ -234,7 +238,8 @@ def datetime_name_content_fixture():
         os.remove(os.path.join(TEST_DIR_JSON, file))
 
 
-def test_datetime_name_content(clear_db, datetime_name_content_fixture, script_execute):
+@pytest.mark.parametrize("telemetry_fixture", [items_edge_ts], indirect=True)
+def test_datetime_name_content(clear_db, telemetry_fixture, script_execute):
     """Обработка файла с разностью datetime в названии и содержимом json. ТЕСТ ПАДАЕТ"""
     sql_query = f"""
                     SELECT EXISTS (
@@ -243,4 +248,7 @@ def test_datetime_name_content(clear_db, datetime_name_content_fixture, script_e
                         WHERE sensor1 = -90.944);
     """
     assert query_execute(sql_query)
+
+
+
 
