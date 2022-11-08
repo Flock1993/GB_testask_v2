@@ -78,7 +78,7 @@ def create_table(cnxn, lst_sensors):
                     );
             """)
         for sensor in lst_sensors:
-            cursor.execute(f"ALTER TABLE sensor_value ADD COLUMN IF NOT EXISTS {sensor} REAL DEFAULT NULL")
+            cursor.execute(f"ALTER TABLE sensor_value ADD COLUMN IF NOT EXISTS {sensor} NUMERIC(7,3) DEFAULT NULL")
 
 
 def output_column(cnxn, table_name):
@@ -91,6 +91,7 @@ def output_column(cnxn, table_name):
             WHERE table_name = '{table_name}' AND column_name LIKE 'sensor%'
             """)
     return column_names_lst
+
 
 class JsonPars:
     """Передача показаний датчиков"""
@@ -108,7 +109,7 @@ class JsonPars:
         self.dir_config = dir_config
         self.conf_datetime = conf_datetime
 
-    def create_collections(
+    def __create_collections(
             self) -> Tuple[Any, Dict[Any, Any], Dict[Any, Dict[str, int]]]:
         """
         Внесение названий целевых датчиков во вспомогательные коллекции
@@ -119,9 +120,8 @@ class JsonPars:
             mid_result = {x: {'count': 0, 'summ': 0} for x in lst_sensors}
         return lst_sensors, dict_sensors, mid_result
 
-    def calc_write_db(self, mid_result: Dict[Any, Dict[str, int]], lst_sensors) -> Tuple[Dict[str, int], Any]:
+    def __calc_write_db(self, mid_result: Dict[Any, Dict[str, int]], lst_sensors) -> Tuple[Dict[str, int], Any]:
         """Вычисление средних показателей датчиков и их запись в БД"""
-        # вычисление средних значений
         result = {}
         for sensor, sensor_values in mid_result.items():
             if sensor_values['count'] == 0:
@@ -130,12 +130,10 @@ class JsonPars:
                 result[sensor] = Decimal(sensor_values['summ'] / sensor_values['count']).quantize(Decimal('1.000'))
 
         lst_values = [str(value) if value != 0 else 'NULL' for value in result.values()]
-        print(lst_values)
         cnxn = db_connection(server, db, username, psswrd)
         create_table(cnxn, lst_sensors)
         with cnxn:
             cursor = cnxn.cursor()
-            print(self.conf_datetime, type(self.conf_datetime))
             cursor.execute(f"""
                 INSERT INTO sensor_value(ts, {', '.join(lst_sensors)})
                 VALUES('{self.conf_datetime}', {', '.join(lst_values)})
@@ -145,13 +143,13 @@ class JsonPars:
                 SELECT *
                 FROM sensor_value;
             """)
-            query = cursor.fetchone()
+            query = cursor.fetchall()
         return query
 
 
     def process_telemetry(self) -> bool:
         """Главная функция передачи показаний датчиков в БД"""
-        lst_sensors, dict_sensors, mid_result = self.create_collections()
+        lst_sensors, dict_sensors, mid_result = self.__create_collections()
         # проход по всем файлам телеметрии
         for json_file in os.listdir(self.dir_telemetry):
             # если название файла корректно - парсим дату из его названия
@@ -173,14 +171,13 @@ class JsonPars:
                     logging.info(f'Дата в названии файла {json_file} некорректна')
             else:
                 logging.info(f'Название или формат файла {json_file} некорректны')
-        query = self.calc_write_db(mid_result, lst_sensors)
-        logging.info(f'Записи в БД: {query}')
-        print(f'Записи в БД: {query}')
+        query = self.__calc_write_db(mid_result, lst_sensors)
+        logging.info('Записи в БД:', *query, sep='\n')
+        print('Записи в БД:', *query, sep='\n')
 
 
 def main():
     instanse = JsonPars()
-    lst_sensors, dict_sensors, mid_result = instanse.create_collections()
     instanse.process_telemetry()
 
 
